@@ -1,0 +1,3541 @@
+---
+title: "Dashboard_ACIAR"
+author: "Titouan Filloux"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+pacman::p_load(
+rio,             # data import/export
+here,            # locate files
+tidyverse,       # data management and visualization
+flexdashboard,   # dashboard versions of R Markdown reports
+shiny,           # interactive figures
+plotly,           # interactive figures
+dplyr,
+labelled
+)
+setwd("C:/Users/titou/OneDrive/Bureau/Mission IMPreSS Vietnam 2024/5.Analyzes/WorkRepositoryR")
+# import the linelist
+Data <- read.csv2("Excel_Dataset_Farmers_072124_v5_Cleaned1.csv", sep = ",")
+var_label(Data) <- as.character(Data[1,])
+Data <- Data[-1,]
+Techno <- c("a. Mini-irrigation pan","b. Sprinklers/mini-sprinklers","c. Drip irrigation","d. Fertigation techniques","e. Adapted NPK rates","f. Biochar/Animal manure","g. Bentonite/Clay amendment","h. Cattle Club","i. Forage species (Mulato 1 & 2, DT58, lemongrass, elephant grass)","j. Increased forage harvesting frequency","k. Cow-calf management / reproduction technics","l. Cows’ mixing formula","m. Cow fattening technics")
+Crops <- c("Forage","Acacia","Asparagus","Cashew","Cassava","Coconut","Eucalyptus","Grape","Jackfruit","Maize","Mango","Onion","Peanut",
+"Rice","Sesame","Watermelon")
+CropsID <- c(0:10,20,13:16)
+CropsLetter <- c("q","a","b","c","d","e","f","g","h","i","j","l","m","n","o","p")
+CropsCor <- data.frame(Crops = Crops, CropsID = CropsID, CropsLetter = CropsLetter)
+# Définir les chiffres et lettres associés
+values <- c("1","2","3","4","5","12","13","6","7","8","9","10","11")
+# Créer le tableau
+TechnoID <- data.frame(
+Techno = Techno,
+Value = values,
+stringsAsFactors = FALSE  # Éviter la conversion en facteurs
+)
+```
+
+# Introduction
+
+**Dashboard Impact study of the ACIAR project - Vietnam - 2024**
+
+This dashboard showcase data collected from rural households in Vietnam as part of a study of ACIAR projects impacts. The study occured in 2024.
+
+*Description of the impact study principles to come...*
+
+To navigate the various sections of the dashboard, utilize the drop-down menus above to access information for Households, Cropping systems, Raising systems, Encounters and Responses/Adoption. Then, use the drop-down menus on the left to select a specific study area (province), crops oand/or technologies/practices you wish to display.
+
+The values presented are % or average values, and the sample considered for each value is normally indicated. These values correspond to the household situation in 2023 (surveys carried out in 2024).
+
+The objectives of this dashboard (**and corresponding parts**) are:
+
+...
+
+
+**Precautions:**
+
+  The quantitative values provided (particularly yield and gross product) may sometimes be inconsistent due to errors during the survey, cleaning, or analysis phases. The large volume of data and the variety of information processed made a more in-depth examination complicated. If this situation arises, do not use the output concerned.
+
+For further information about this dashboard, please contact: titouan.filloux@wanadoo.fr
+
+
+# Information {.sidebar}
+
+```{r}
+library(flexdashboard)
+library(dplyr)
+
+#Drop-down menu of study area (Province) chosen
+selectInput("Sarea_choice", label = "Select a study area (province) to display:",
+            choices = c("All",unique(Data$o2.)), selected = "All")
+
+#Drop-down menu of practice/technology chosen
+selectInput("Stechno_choice", label = "Select a technology/practice to display:", choices = Techno, selected = "a. Mini-irrigation pan")
+
+#Drop-down menu of crops
+selectInput("Scrops_choice", label = "Select a crop  to display:", choices = Crops, selected = "Forage")
+```
+
+# General {data-navmenu="Household information"}
+
+## Row 1 {data-height=500}
+
+### **General**
+
+N Study area = **`r renderText({round(nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]), digits = 0)})`**
+
+```{r}
+  renderTable({
+if(input$Sarea_choice == "All"){
+  Province <- Data %>%
+  group_by(o2.) %>%
+  summarise(
+    nb_reponses = n(),                    # Nombre de réponses par modalité
+    pourcentage = sprintf("%.0f%%", n() / nrow(Data) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(nb_reponses))
+    colnames(Province) <- c("Province","Nb Households", "% of N Study area")
+  print(Province)
+} else {
+  District <- Data %>%
+  filter(o2. == input$Sarea_choice) %>%
+  group_by(o3.) %>%
+  summarise(
+    nb_reponses = n(),                    # Nombre de réponses par modalité
+    pourcentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(nb_reponses))
+    colnames(District) <- c("District","Nb Households", "% of N Study area")
+  print(District)
+  }
+})
+```
+```{r}
+  renderTable({
+if(input$Sarea_choice != "All"){
+  Commune <- Data %>%
+  filter(o2. == input$Sarea_choice) %>%
+  group_by(o4.) %>% 
+  summarise(
+    nb_reponses = n(),                    # Nombre de réponses par modalité
+    pourcentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>% 
+  arrange(desc(nb_reponses))
+    colnames(Commune) <- c("Commune","Nb Households", "% of N Study area")
+  print(Commune)
+  }
+})
+```
+  
+### **Respondent status (within the household)**
+```{r}
+renderTable({
+  Respondent <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  group_by(o7.) %>%
+  summarise(
+    nb_reponses = n(),                    # Nombre de réponses par modalité
+    pourcentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(nb_reponses))
+    colnames(Respondent) <- c("Type of respondent","Nb Households", "% of N Study area")
+  print(Respondent)
+})
+```
+
+## Row 2 {data-height=500}
+
+### **Respondent age - General (% of N Study area)**
+```{r}
+renderPlotly({
+  Data$Age <- 2024 - as.numeric(as.character(Data$o8.))
+  Data$AgeCat <- cut(Data$Age, breaks = seq(0, 100, by = 10),
+                      labels = c("0-10", "11-20", "21-30", "31-40", "41-50", 
+                                 "51-60", "61-70", "71-80", "81-90", "91-100"))
+Age <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o3. et AgeCat
+  group_by(AgeCat) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  ggplotly(
+  ggplot(Age, aes(x = AgeCat, y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 3) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Age categories (years)", y = "Nb of households",
+       title = "Age pyramid of respondents") +
+  theme_minimal()+
+    scale_fill_viridis_d()
+  )
+})
+```
+
+### **Respondent age - Per province/district (% of N Study area)**
+```{r}
+renderPlotly({
+  Data$Age <- 2024 - as.numeric(as.character(Data$o8.))
+  Data$AgeCat <- cut(Data$Age, breaks = seq(0, 100, by = 10),
+                      labels = c("0-10", "11-20", "21-30", "31-40", "41-50", 
+                                 "51-60", "61-70", "71-80", "81-90", "91-100"))
+if(input$Sarea_choice == "All"){
+   Age <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(o2., AgeCat) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  province_colors <- unique(Age$o2.)
+  ggplotly(
+  ggplot(Age, aes(x = AgeCat, y = count, fill = o2.)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = o2.), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Age categories (years)", y = "Nb of households",
+       title = "Age pyramid of respondents") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+} else {
+   Age <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(o3., AgeCat) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(count = n(),                   # Nombre de réponses par modalité
+            percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité 
+            )
+  ggplotly(
+  ggplot(Age, aes(x = AgeCat, y = count, fill = o3.)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = o3.), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Age categories (years)", y = "Nb of households",
+       title = "Age pyramid of respondents") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+}
+})
+```
+
+
+
+
+
+# Length of residence and education level {data-navmenu="Household information"}
+
+## Row 1 {data-height=500}
+
+### **Length of residence in the area - General (% of N Study area)**
+```{r}
+renderPlotly({
+  Data$InstallationDate <- 2024 - as.numeric(as.character(Data$How))
+  Data$InstallationDateCat <- cut(Data$InstallationDate, breaks = seq(0, 100, by = 10),
+                      labels = c("0-10", "11-20", "21-30", "31-40", "41-50", 
+                                 "51-60", "61-70", "71-80", "81-90", "91-100"))
+if(input$Sarea_choice == "All"){
+   InstallationDate <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(InstallationDateCat) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  province_colors <- unique(InstallationDate$o2.)
+  ggplotly(
+  ggplot(InstallationDate, aes(x = InstallationDateCat, y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Length of residence in the area") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+} else {
+   InstallationDate <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(InstallationDateCat) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(count = n(),                   # Nombre de réponses par modalité
+            percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité 
+            )
+  ggplotly(
+  ggplot(InstallationDate, aes(x = InstallationDateCat, y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Length of residence in the area") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+}
+})
+```
+
+
+### **Length of residence in the area - Per province/district (% of N Study area)**
+```{r}
+renderPlotly({
+  Data$InstallationDate <- 2024 - as.numeric(as.character(Data$How))
+  Data$InstallationDateCat <- cut(Data$InstallationDate, breaks = seq(0, 100, by = 10),
+                      labels = c("0-10", "11-20", "21-30", "31-40", "41-50", 
+                                 "51-60", "61-70", "71-80", "81-90", "91-100"))
+if(input$Sarea_choice == "All"){
+   InstallationDate <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(o2., InstallationDateCat) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  province_colors <- unique(InstallationDate$o2.)
+  ggplotly(
+  ggplot(InstallationDate, aes(x = InstallationDateCat, y = count, fill = o2.)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = o2.), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Length of residence in the area") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+} else {
+   InstallationDate <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(o3., InstallationDateCat) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(count = n(),                   # Nombre de réponses par modalité
+            percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité 
+            )
+  ggplotly(
+  ggplot(InstallationDate, aes(x = InstallationDateCat, y = count, fill = o3.)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = o3.), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Length of residence in the area") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+}
+})
+```
+
+## Row 2
+
+### **Household head level of education - General (% of N Study area)**
+```{r}
+renderPlotly({
+  Data$a3. <- factor(Data$a3., levels = c("Other", "Elementary school level", "Secondary school level","High school","Technical certification","University"))
+if(input$Sarea_choice == "All"){
+   EducationLevel <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a3.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  province_colors <- unique(EducationLevel$o2.)
+  ggplotly(
+  ggplot(EducationLevel, aes(x = a3., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Education level of the\n household head") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+} else {
+   EducationLevel <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a3.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(count = n(),                   # Nombre de réponses par modalité
+            percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité 
+            )
+  ggplotly(
+  ggplot(EducationLevel, aes(x = a3., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Length of residence in the area") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+}
+})
+```
+
+### **Household head level of education - Per province/district (% of N Study area)**
+```{r}
+renderPlotly({
+    Data$a3. <- factor(Data$a3., levels = c("Other", "Elementary school level", "Secondary school level","High school","Technical certification","University"))
+if(input$Sarea_choice == "All"){
+   EducationLevel <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(o2., a3.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  province_colors <- unique(EducationLevel$o2.)
+  ggplotly(
+  ggplot(EducationLevel, aes(x = a3., y = count, fill = o2.)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = o2.), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Education level of the household head") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+} else {
+   EducationLevel <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(o3., a3.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(count = n(),                   # Nombre de réponses par modalité
+            percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité 
+            )
+  ggplotly(
+  ggplot(EducationLevel, aes(x = a3., y = count, fill = o3.)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = o3.), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Length of residence in the area") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+}
+})
+```
+
+# Main activity and background {data-navmenu="Household information"}
+
+## Row 1
+
+### **Households main activity - Farming**
+```{r}
+renderTable({
+  Respondent <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  group_by(a1.) %>%
+  summarise(
+    nb_reponses = n(),                    # Nombre de réponses par modalité
+    pourcentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(nb_reponses))
+    colnames(Respondent) <- c("Household head being a farmer","Nb Households", "% of N Study area")
+  print(Respondent)
+})
+```
+
+### **Other kind of main activities**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a1.2.2." = "Farmer in a different area", "a1.2.3." = "Business owner", "a1.2.4." = "Employee", "a1.2.5." = "Student","a1.2.99." = "Other")
+  Respondent <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("a1."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )
+  ) %>%
+  count(area, modality) %>%  # Count the number of responses for each modality and area
+  group_by(area) %>%
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  Respondent <- Respondent[,-4]
+  colnames(Respondent) <- c("Province/District","Activity","n", "% of N Study area")
+  print(Respondent)
+})
+```
+
+## Row 2 {data-height=500}
+
+### **Previous employment/activity - General**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a2.1." = "I have always been a farmer here", "a2.2." = "Farmer in a different area", "a2.3." = "Business owner", "a2.4." = "Salaried work/Employee","a2.5." = "Student","a2.99." = "Other")
+ Previous <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("a2."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  Previous <- Previous[,-3]
+  colnames(Previous) <- c("Activity","n", "% of N Study area")
+  print(Previous)
+})
+```
+
+### **Previous employment/activity - Per province/district**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a2.1." = "I have always been a farmer here", "a2.2." = "Farmer in a different area", "a2.3." = "Business owner", "a2.4." = "Salaried work/Employee","a2.5." = "Student","a2.99." = "Other")
+ Previous <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("a2."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )
+  ) %>%
+  count(area, modality) %>%  # Count the number of responses for each modality and area
+  group_by(area) %>%
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  Previous <- Previous[,-4]
+  colnames(Previous) <- c("Province/District","Activity","n", "% of N Study area")
+  print(Previous)
+})
+```
+
+# Income - part 1 {data-navmenu="Household information"}
+
+## Row 1 {data-height=500}
+
+### **Source of household income - Own farming activities - General (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+Data$a4.1. <- factor(Data$a4.1., levels = c("0%", "25%", "50%","75%","100%"))
+renderPlotly({
+  IncomeFarm <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a4.1.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(IncomeFarm$o2.)
+  ggplotly(
+  ggplot(IncomeFarm, aes(x = a4.1., y = count)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "%of household income", y = "Nb of households",
+       title = "% of income from farming activities") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Source of household income - Own farming activities - Per province/District (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+Data$a4.1. <- factor(Data$a4.1., levels = c("0%", "25%", "50%","75%","100%"))
+renderPlotly({
+  IncomeFarm <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )
+  ) %>%
+  group_by(area, a4.1.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(IncomeFarm$o2.)
+  ggplotly(
+  ggplot(IncomeFarm, aes(x = a4.1., y = count, fill = area)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "%of household income", y = "Nb of households",
+       title = "% of income from salaried work on other farm") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+## Row 2
+
+### **Source of household income - Salaried work on other farms - General (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+Data$a4.2. <- factor(Data$a4.2., levels = c("0%", "25%", "50%","75%","100%"))
+renderPlotly({
+  IncomeFarm <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a4.2.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(IncomeFarm$o2.)
+  ggplotly(
+  ggplot(IncomeFarm, aes(x = a4.2., y = count)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "%of household income", y = "Nb of households",
+       title = "% of income from salaried work on\n other farm") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Source of household income - Salaried work on other farms - Per province/District (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+Data$a4.2. <- factor(Data$a4.2., levels = c("0%", "25%", "50%","75%","100%"))
+renderPlotly({
+  IncomeFarm <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )
+  ) %>%
+  group_by(area, a4.2.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(IncomeFarm$o2.)
+  ggplotly(
+  ggplot(IncomeFarm, aes(x = a4.2., y = count, fill = area)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "%of household income", y = "Nb of households",
+       title = "% of income from salaried work on other farm") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+# Income - part 2 {data-navmenu="Household information"}
+
+## Row 1 {data-height=500}
+
+### **Source of household income - Activities outside farming - General (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+Data$a4.3. <- factor(Data$a4.3., levels = c("0%", "25%", "50%","75%","100%"))
+renderPlotly({
+  IncomeFarm <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a4.3.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(IncomeFarm$o2.)
+  ggplotly(
+  ggplot(IncomeFarm, aes(x = a4.3., y = count)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "%of household income", y = "Nb of households",
+       title = "% of income from non-farming activities") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Source of household income - Activities outside farming - Per province/District (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+Data$a4.3. <- factor(Data$a4.3., levels = c("0%", "25%", "50%","75%","100%"))
+renderPlotly({
+  IncomeFarm <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )
+  ) %>%
+  group_by(area, a4.3.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(IncomeFarm$o2.)
+  ggplotly(
+  ggplot(IncomeFarm, aes(x = a4.3., y = count, fill = area)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "%of household income", y = "Nb of households",
+       title = "% of income from non-farming activities") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+## Row 2 {data-height=500}
+
+### **Source of household income - Activities outside farming - General (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+Data$a4.3. <- factor(Data$a4.3., levels = c("0%", "25%", "50%","75%","100%"))
+renderPlotly({
+  IncomeFarm <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a4.3.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(IncomeFarm$o2.)
+  ggplotly(
+  ggplot(IncomeFarm, aes(x = a4.3., y = count)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "%of household income", y = "Nb of households",
+       title = "% of income from non-farming activities") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Source of household income - Activities outside farming - Per province/District (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+Data$a4.3. <- factor(Data$a4.3., levels = c("0%", "25%", "50%","75%","100%"))
+renderPlotly({
+  IncomeFarm <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )
+  ) %>%
+  group_by(area, a4.3.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(IncomeFarm$o2.)
+  ggplotly(
+  ggplot(IncomeFarm, aes(x = a4.3., y = count, fill = area)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "%of household income", y = "Nb of households",
+       title = "% of income from non-farming activities") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+# Settling conditions {data-navmenu="Household information"}
+
+## Row 1 {data-height=500}
+
+### **Date of farming activity starting - General (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$FarmStartDate <- 2024 - as.numeric(as.character(Data$a5.))
+  Data$FarmStartDateCat <- cut(Data$FarmStartDate, breaks = seq(0, 100, by = 10),
+                      labels = c("0-10", "11-20", "21-30", "31-40", "41-50", 
+                                 "51-60", "61-70", "71-80", "81-90", "91-100"))
+  FarmStartDate <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+  # Groupement par colonnes o2. et AgeCat
+  group_by(FarmStartDateCat) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmStartDate$o2.)
+  ggplotly(
+  ggplot(FarmStartDate, aes(x = FarmStartDateCat, y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Duration since start of agricultural activity") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Date of farming activity starting - Per province/District (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$FarmStartDate <- 2024 - as.numeric(as.character(Data$a5.))
+  Data$FarmStartDateCat <- cut(Data$FarmStartDate, breaks = seq(0, 100, by = 10),
+                      labels = c("0-10", "11-20", "21-30", "31-40", "41-50", 
+                                 "51-60", "61-70", "71-80", "81-90", "91-100"))
+  FarmStartDate <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(area,FarmStartDateCat) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmStartDate$o2.)
+  ggplotly(
+  ggplot(FarmStartDate, aes(x = FarmStartDateCat, y = count, fill = area)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = area), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of years", y = "Nb of households",
+       title = "Duration since start of agricultural activity") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+## Row 2
+
+### **Conditions for setting up in farming - General (Several answers possible)**
+
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a6.1." = "Inherited the land/farm (through you or your partner/spousal)", "a6.2." = "Bought the land", "a6.3." = "Rent the land", "a6.4." = "Was allocated land by a governmental program","a6.99." = "Other","a2.88." = "Do not know/ Do not want to answer")
+ SettingUpC <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("a6."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  SettingUpC <- SettingUpC[,-3]
+  colnames(SettingUpC) <- c("Activity","n", "% of N Study area")
+  print(SettingUpC)
+})
+```
+
+### **Conditions for setting up in farming - Per province/District (Several answers possible)**
+
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a6.1." = "Inherited the land/farm (through you or your partner/spousal)", "a6.2." = "Bought the land", "a6.3." = "Rent the land", "a6.4." = "Was allocated land by a governmental program","a6.99." = "Other","a6.88." = "Do not know/ Do not want to answer")
+ SettingUpC <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("a6."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )
+  ) %>%
+  count(area, modality) %>%  # Count the number of responses for each modality and area
+  group_by(area) %>%
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  SettingUpC <- SettingUpC[,-4]
+  colnames(SettingUpC) <- c("Province/District","Activity","n", "% of N Study area")
+  print(SettingUpC)
+})
+```
+
+# Household members and labor force part 1 {data-navmenu="Household information"}
+
+## Row 1
+
+### **Number of adults in the household - General (% of N Study area)**
+
+```{r}
+renderPlotly({
+  #Conversion of the data to numeric format first
+  Data$a7. <- as.numeric(Data$a7.)
+  NbAdults <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a7.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(NbAdults$o2.)
+  ggplotly(
+  ggplot(NbAdults, aes(x = a7., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Number of adults in the household") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Number of adults in the household - Per Province/District (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a7. <- as.numeric(Data$a7.)
+  FarmActivesFT <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(area,a7.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmActivesFT$o2.)
+  ggplotly(
+  ggplot(FarmActivesFT, aes(x = a7., y = count, fill = area)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = area), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Number of adults in the household") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+## Row 2
+
+### **Number of childs in the household - General (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a8. <- as.numeric(Data$a8.)
+  NbChilds <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a8.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(NbChilds$o2.)
+  ggplotly(
+  ggplot(NbChilds, aes(x = a8., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Number of childs in the household") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Number of childs in the household - Per Province/District (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a8. <- as.numeric(Data$a8.)
+  FarmActivesFT <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(area,a8.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmActivesFT$o2.)
+  ggplotly(
+  ggplot(FarmActivesFT, aes(x = a8., y = count, fill = area)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = area), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Number of adults in the household") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+# Household members and labor force part 2 {data-navmenu="Household information"}
+
+## Row 1
+
+### **Nb of farm active members Full-time - General (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a9. <- as.numeric(Data$a9.)
+  FarmActivesFT <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a9.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmActivesFT$o2.)
+  ggplotly(
+  ggplot(FarmActivesFT, aes(x = a9., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Nb of active farm members Full-time") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Nb of farm active members Full-time - Per Province/District (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a9. <- as.numeric(Data$a9.)
+  FarmActivesFT <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(area,a9.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmActivesFT$o2.)
+  ggplotly(
+  ggplot(FarmActivesFT, aes(x = a9., y = count, fill = area)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = area), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Nb of active farm members Full-time") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+## Row 2
+
+### **Nb of farm active members Part-time - General (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a9b. <- as.numeric(Data$a9b.)
+  FarmActivesPT <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a9b.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmActivesPT$o2.)
+  ggplotly(
+  ggplot(FarmActivesPT, aes(x = a9b., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Nb of active farm members Part-time") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Nb of farm active members Part-time - Per Province/District (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a9b. <- as.numeric(Data$a9b.)
+  FarmActivesPT <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(area,a9b.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmActivesPT$o2.)
+  ggplotly(
+  ggplot(FarmActivesPT, aes(x = a9b., y = count, fill = area)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = area), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Nb of active farm members Part-time") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+# Household members and labor force part 3 {data-navmenu="Household information"}
+
+## Row 1
+
+### **Nb of farm active members Full-time (1) + Part-time (0.5) - General (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a9. <- as.numeric(Data$a9.)
+  Data$a9b. <- as.numeric(Data$a9b.)
+  Data$PartTimelabor <- Data$a9. + (Data$a9b. * 0.5)
+  FarmActivesTot <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+  # Groupement par colonnes o2. et AgeCat
+  group_by(PartTimelabor) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmActivesTot$o2.)
+  ggplotly(
+  ggplot(FarmActivesTot, aes(x = PartTimelabor, y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Nb of active farm members\n Full-time (1) + Part-time (0.5)") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Nb of farm active members Full-time (1) + Part-time (0.5) - Per Province/District (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$PartTimelabor <- Data$a9. + (Data$a9b. * 0.5)
+  FarmActivesTot <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(area,PartTimelabor) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(FarmActivesTot$o2.)
+  ggplotly(
+  ggplot(FarmActivesTot, aes(x = PartTimelabor, y = count, fill = area)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = area), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of people", y = "Nb of households",
+       title = "Nb of active farm members\n Full-time (1) + Part-time (0.5)") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+## Row 2
+
+### **Nb of hired workers per year (working days) - General (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a10. <- as.numeric(Data$a10.)
+  HiredWorkers <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+  # Groupement par colonnes o2. et AgeCat
+  group_by(a10.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(HiredWorkers$o2.)
+  ggplotly(
+  ggplot(HiredWorkers, aes(x = "", y = a10.)) +
+  geom_boxplot() +
+  labs(x = "", y = "Nb of working days",
+       title = "Nb of hired workers per year")
+  )
+})
+```
+
+### **Nb of hired workers per year (working days) - Per Province/District (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a10. <- as.numeric(Data$a10.)
+  HiredWorkers <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+       mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(area,a10.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(HiredWorkers$o2.)
+  ggplotly(
+  ggplot(HiredWorkers, aes(x = a10., y = count, fill = area)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2, colour = area), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  labs(x = "Nb of working days", y = "Nb of households",
+       title = "Nb of hired workers per year") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+# Major changes in household activities and behaviour related to others and risk + Organization {data-navmenu="Household information"}
+
+## Row 1
+
+### **Major changes in household’s activities in the past three years (% of N Study area)**
+
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a16.0." = "No major changes",
+  "a16.1." = "Change in types of crops cultivated",
+                 "a16.2." = "Change in the breed of animals raised",
+                 "a16.3." = "Increase in number of animals raised",
+                 "a16.4." = "Increase of plant production activities",
+                 "a16.5" = "Decrease in number of animals raised",
+                 "a16.6" = "Decrease of plant production activities",
+                 "a16.7" = "Increase  of non-farm activities",
+                 "a16.8" = "Use of new practices/technologies",
+                 "a16.9" = "Implementation of irrigation system",
+                 "a16.99." = "Other",
+                 "a2.88." = "Do not know/ Do not want to answer")
+Changes <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("a16."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  Changes <- Changes[,-3]
+  colnames(Changes) <- c("Changes","n", "% of N Study area")
+Changes <- Changes[order(Changes$n, decreasing = TRUE), ]
+  print(Changes)
+})
+```
+
+### **Major challenges faced by households (% of N Study area)**
+
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a15.0." = "No major challenge",
+                 "a15.1." = "Environmental pollution",
+                 "a15.2." = "Natural disaster (flooding, drought, storm) / Weather constraint",
+                 "a15.3." = "Cows mortality/ Cows diseases",
+                 "a15.4." = "Low soil fertility",
+                 "a15.5." = "Water constraint",
+                 "a15.6." = "Lack of labor capacity",
+                 "a15.7." = "Market variation",
+                 "a15.8." = "Land pressure",
+                 "a15.9." = "Lack of capacity to invest",
+                 "a15.99." = "Other",
+                 "a15.88." = "Do not know/Do not want to answer")
+Challenges <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("a15."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  Challenges <- Challenges[,-3]
+  colnames(Challenges) <- c("Challenges","n", "% of N Study area")
+Challenges <- Challenges[order(Challenges$n, decreasing = TRUE), ]
+  print(Challenges)
+})
+```
+
+## Row 2
+
+### **Attention to others’ opinions and considerations on choices and decisions? (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+renderPlotly({
+    Data$e1. <- factor(Data$e1., levels = c("I care a lot", "I rather care", "I rather don’t care","I don’t care at all"))
+  OpiAttention <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(e1.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(OpiAttention$o2.)
+  ggplotly(
+  ggplot(OpiAttention, aes(x = e1., y = count)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "Answer", y = "Nb of households",
+       title = "Attention to others' opinion") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Willingness to take risk (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+renderPlotly({
+    Data$e2. <- factor(Data$e2., levels = c("I am very much trying to avoid risk", "I am usually tend to avoid risk", "I am usually willing to take risk","I am very much willing to take risk"))
+  WillRisk <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(e2.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  province_colors <- unique(WillRisk$o2.)
+  ggplotly(
+  ggplot(WillRisk, aes(x = e2., y = count)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "Answer", y = "Nb of households",
+       title = "Willingness to take risk") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+# Farming organization and equipments {data-navmenu="Cropping systems"}
+
+### **Membership in one or more farmer organizations (% of N Study area)**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a14.0." = "No",
+                 "a14.1." = "Yes, a cattle club",
+                 "a14.99." = "Yes, other farmers organization",
+                 "a14-88." = "Do not know/Do not want to answer")
+Orga <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("a14."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  )
+  Orga <- Orga[,-3]
+  colnames(Orga) <- c("Organizations","n", "% of N Study area")
+Orga <- Orga[order(Orga$n, decreasing = TRUE), ]
+  print(Orga)
+})
+```
+
+# Crop diversity - Total {data-navmenu="Cropping systems"}
+
+### **Crop diversity - Total (% of N Study area)**
+
+```{r}
+renderPlotly({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a11.0\\." = "No crop", "a11.1\\." = "Forage", "a11.2\\." = "Watermelon", "a11.3\\." = "Peanut", "a11.4\\." = "Onion", "a11.5\\." = "Asparagus", "a11.6\\." = "Sesame", "a11.7\\." = "Rice", "a11.8\\." = "Cassava", "a11.9\\." = "Maize", "a11.10\\." = "Grape", "a11.11\\." = "Cashew", "a11.12\\." = "Mango", "a11.13\\." = "Melon", "a11.14\\." = "Jackfruit", "a11.15\\." = "Coconut", "a11.16\\." = "Eucalyptus", "a11.17\\." = "Acacia","a11.18\\." = "Spinach",
+"a11.19\\." = "Chili",	"a11.20\\." = "Eggplant",
+"a11.21\\." = "Pepper",	"a11.22\\." = "Other vegetables",
+"a11.23\\." = "Grapefruit",	"a11.24\\." = "Banana",
+"a11.25\\." = "Custard apple", "a11.26\\." = "Other fruit trees",
+"a11.27\\." = "Coffee", "a11.28\\." = "Sugarcane",
+                 "a11.991\\." = "Other crop 1", "a11.992\\." = "Other crop 2", "a11.993\\." = "Other crop 3")
+CropsGene <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^a11\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  CropsGene$modality <- reorder(CropsGene$modality , CropsGene$n, FUN = min)
+  CropsGene <- CropsGene[CropsGene$modality != "Other crop 1" & CropsGene$modality != "Other crop 2" &
+          CropsGene$modality != "Other crop 3",]
+  province_colors <- unique(CropsGene$area)
+  ggplotly(
+  ggplot(CropsGene, aes(x = modality, y = n, fill = modality)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = n+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  labs(x = "Crops", y = "Nb of households",
+       title = "Main crops grown in the study area") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+# Crop diversity - Per province/district {data-navmenu="Cropping systems"}
+
+### **Crop diversity - per province/district (% of N Study area)**
+
+```{r}
+renderPlotly({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("a11.0\\." = "No crop", "a11.1\\." = "Forage", "a11.2\\." = "Watermelon", "a11.3\\." = "Peanut", "a11.4\\." = "Onion", "a11.5\\." = "Asparagus", "a11.6\\." = "Sesame", "a11.7\\." = "Rice", "a11.8\\." = "Cassava", "a11.9\\." = "Maize", "a11.10\\." = "Grape", "a11.11\\." = "Cashew", "a11.12\\." = "Mango", "a11.13\\." = "Melon", "a11.14\\." = "Jackfruit", "a11.15\\." = "Coconut", "a11.16\\." = "Eucalyptus", "a11.17\\." = "Acacia", "a11.991\\." = "Other crop 1", "a11.992\\." = "Other crop 2", "a11.993\\." = "Other crop 3")
+CropsGene <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^a11\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  mutate(
+    area = case_when(
+      input$Sarea_choice == "All" ~ o2.,
+      TRUE ~ o3.
+    )
+  ) %>%
+  count(area, modality) %>%  # Count the number of responses for each modality and area
+  group_by(area) %>%
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  CropsGene$modality <- reorder(CropsGene$modality , CropsGene$n, FUN = min)
+  province_colors <- unique(CropsGene$area)
+  ggplotly(
+  ggplot(CropsGene, aes(x = modality, y = n, fill = area)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Crops", y = "Nb of households",
+       title = "Main crops grown in the study area") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+# Crop area distribution - Total {data-navmenu="Cropping systems"}
+
+### **Crop area - Total (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$a11b. <- as.numeric(Data$a11b.)
+  Datab <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]
+  #Plot
+  ggplot(Datab, aes(x = a11b.)) +
+  geom_histogram(width = 0.2, fill = "skyblue", color = "black") +
+  labs(x = "Nb of ha", y = "Nb of households", title = "Cultivated area distribution")+
+  theme_minimal()
+})
+```
+
+# Crop general information at specie level {data-navmenu="Cropping systems"}
+
+## Row 1
+
+### **General (% of N crop)**
+```{r}
+renderText({
+replacement <- c("a11.0\\." = "No crop", "a11.1\\." = "Forage", "a11.2\\." = "Watermelon", "a11.3\\." = "Peanut", "a11.4\\." = "Onion", "a11.5\\." = "Asparagus", "a11.6\\." = "Sesame", "a11.7\\." = "Rice", "a11.8\\." = "Cassava", "a11.9\\." = "Maize", "a11.10\\." = "Grape", "a11.11\\." = "Cashew", "a11.12\\." = "Mango", "a11.13\\." = "Melon", "a11.14\\." = "Jackfruit", "a11.15\\." = "Coconut", "a11.16\\." = "Eucalyptus", "a11.17\\." = "Acacia","a11.18\\." = "Spinach",
+"a11.19\\." = "Chili",	"a11.20\\." = "Eggplant",
+"a11.21\\." = "Pepper",	"a11.22\\." = "Other vegetables",
+"a11.23\\." = "Grapefruit",	"a11.24\\." = "Banana",
+"a11.25\\." = "Custard apple", "a11.26\\." = "Other fruit trees",
+"a11.27\\." = "Coffee", "a11.28\\." = "Sugarcane",
+                 "a11.991\\." = "Other crop 1", "a11.992\\." = "Other crop 2", "a11.993\\." = "Other crop 3")
+CropsGene <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^a11\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+selected_column <- grep(paste0("d1\\.1\\.",CropsCor[CropsCor$Crops == input$Scrops_choice, 2], "\\."), names(Data), value = TRUE)
+Data[,selected_column] <- as.character(Data[,selected_column])
+Data[,selected_column] <- as.numeric(Data[,selected_column])
+MeanAr <- mean(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,selected_column], na.rm = T)
+SDAr <- sd(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,selected_column], na.rm = T)
+print(paste("N crop = ", CropsGene[CropsGene$modality == input$Scrops_choice, 2], " / / Or ", CropsGene[CropsGene$modality == input$Scrops_choice, 4], "of N crop", "/ / Average area:",
+      round(MeanAr, digits = 2), "ha", "/ / Standard deviation:",round(SDAr, digits = 2)))
+})
+```
+
+### **Cultivated area distribution (% of N crop)**
+```{r}
+renderPlotly({
+  selected_column <- grep(paste0("d1\\.1\\.",CropsCor[CropsCor$Crops == input$Scrops_choice, 2], "\\."), names(Data), value = TRUE)
+  Data[,selected_column] <- as.character(Data[,selected_column])
+    Data[,selected_column] <- as.numeric(Data[,selected_column])
+  Datab <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]
+  column_index <- which(names(Datab) == selected_column)
+  colnames(Datab)[column_index] <- "variable"
+  ggplot(Datab, aes(x = variable)) +
+  geom_histogram(width = 0.2, fill = "skyblue", color = "black") +
+  labs(x = "Nb of ha", y = "Nb of households", title = "Cultivated area distribution")+
+  theme_minimal()
+})
+```
+
+## Row 2
+
+### **Variety grown (% of N crop)**
+```{r}
+renderTable({
+colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+y_values <- c(1:6, 99)
+elements <- paste0("d1\\.2\\.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], "\\.", y_values,"\\.")
+  # Liste des remplacements pour chaque colonne
+replacement <- setNames(c("Local crop variety","Hybrid/Selected crop varieties","Mulato (for forage only)","Mulato 2 (for forage only)","Lemon grass (for forage only)","Elephant grass (for forage only)","Other"),  
+  elements)
+Cropvariety <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(paste0("d1.2.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], "\\.", y_values,"\\.")), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / Counter * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  Cropvariety <-  Cropvariety[,-3]
+  colnames(Cropvariety) <- c("Type of variety","n", "% of N Crop")
+Cropvariety <- Cropvariety[order(Cropvariety$n, decreasing = TRUE), ]
+  print(Cropvariety)
+})
+```
+
+### **Number of years since starting this activity (% of N crop)**
+```{r}
+renderPlotly({
+  selected_column <- grep(paste0("d1\\.3\\.",CropsCor[CropsCor$Crops == input$Scrops_choice, 2], "\\."), names(Data), value = TRUE)
+  Data[,selected_column] <- as.character(Data[,selected_column])
+    Data[,selected_column] <- as.numeric(Data[,selected_column])
+  Datab <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]
+  column_index <- which(names(Datab) == selected_column)
+  colnames(Datab)[column_index] <- "variable"
+  ggplot(Datab, aes(x = variable)) +
+  geom_histogram(width = 0.2, fill = "skyblue", color = "black") +
+  labs(x = "Nb of years", y = "Nb of households", title = "Nb of years since crop start distribution")+
+  theme_minimal()
+})
+```
+
+# Crop technical information at specie level {data-navmenu="Cropping systems"}
+
+## Row 1
+
+### **Irrigation & Water sources (% of N crop)**
+```{r}
+renderTable({
+  colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+selected_column <- paste0("d1.4.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+    Data[,selected_column] <- factor(Data[,selected_column], levels = c("Yes - 100% of the area", "Yes - More than 50% of the area", "Yes - Less than 50% of the area","No"))
+  IrriMain <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  group_by(across(all_of(selected_column))) %>%
+  summarise(
+    count = n(),                    
+    percentage = sprintf("%.0f%%", n() / Counter * 100)  # Pourcentage de réponses par modalité
+  )
+  colnames(IrriMain)[1] <- "modality"
+  IrriMain <- IrriMain[!is.na(IrriMain$modality),]
+  print(IrriMain)
+})
+```
+
+```{r}
+renderTable({
+colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+y_values <- c(1:5, 99)
+elements <- paste0("d1.4a.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,".")
+  # Liste des remplacements pour chaque colonne
+replacement <- setNames(c("Rainwater collection/storage","Ponds (for water storage)","Groundwater (through water pumping)","Dam (gravity)","Dam (through water pumping)","Other"),  
+  elements)
+IrriType <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(paste0("d1.4a.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,".")), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / Counter * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  IrriType <-  IrriType[,-3]
+  colnames(IrriType) <- c("modality","n", "% of N Crop")
+IrriType <- IrriType[order(IrriType$n, decreasing = TRUE),]
+  print(IrriType)
+})
+```
+
+### **Farming inputs and practices (% of N crop)**
+
+```{r}
+renderTable({
+colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+y_values <- c(0:7, 99,88)
+elements <- paste0("d1.5.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,".")
+  # Liste des remplacements pour chaque colonne
+replacement <- setNames(c("None","Cultivation in association with other crops (at the same time on the same plot)","Crop rotation with other crops (same plots but at different times)","Chemical inputs","Organic inputs","Animal manure","Cover crop","Mechanical weeding", "Other","Do not know/Do not want to answer"),  
+  elements)
+PracticeType <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(paste0("d1.5.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,".")), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / Counter * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  PracticeType <-  PracticeType[,-3]
+  colnames(PracticeType) <- c("modality","n", "% of N Crop")
+PracticeType <- PracticeType[order(PracticeType$n, decreasing = TRUE),]
+  print(PracticeType)
+})
+```
+
+## Row 2
+
+### **Crop associations**
+```{r}
+renderTable({
+colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+y_values <- c(0:17, 991:993)
+elements <- paste0("d1.5.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], "a.", y_values,"\\.")
+# Liste des remplacements pour chaque colonne
+replacement <- setNames(c("No crop", "Forage", "Watermelon",	"Peanut", "Onion", "Asparagus", "Sesame",	"Rice", "Cassava", "Maize", "Grape", "Cashew", "Mango",	"Melon", "Jackfruit", "Coconut", "Eucalyptus", "Acacia","Other crop 1","Other crop 2","Other crop 3"),  
+  elements)
+CropAsso <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(paste0("d1.5.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], "a.", y_values,".")), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / Counter * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  CropAsso <-  CropAsso[,-3]
+  colnames(CropAsso) <- c("modality","n", "% of N Crop")
+CropAsso <- CropAsso[order(CropAsso$n, decreasing = TRUE),]
+  print(CropAsso)
+})
+```
+
+### **Crop rotations**
+```{r}
+renderTable({
+colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+y_values <- c(0:17, 991:993)
+elements <- paste0("d1.5.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], "b.", y_values,"\\.")
+# Liste des remplacements pour chaque colonne
+replacement <- setNames(c("No crop", "Forage", "Watermelon",	"Peanut", "Onion", "Asparagus", "Sesame",	"Rice", "Cassava", "Maize", "Grape", "Cashew", "Mango",	"Melon", "Jackfruit", "Coconut", "Eucalyptus", "Acacia","Other crop 1","Other crop 2","Other crop 3"),  
+  elements)
+CropRot <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(paste0("d1.5.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], "b.", y_values,".")), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / Counter * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  CropRot <-  CropRot[,-3]
+  colnames(CropRot) <- c("modality","n", "% of N Crop")
+CropRot <- CropRot[order(CropRot$n, decreasing = TRUE),]
+  print(CropRot)
+})
+```
+
+# Crop use and outputs {data-navmenu="Cropping systems"}
+
+## Row 1
+
+### **Use of main harvest products for this crop (% of N crop)**
+```{r}
+renderTable({
+colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+y_values <- c(1:3, 99)
+elements <- paste0("d1.6.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,"\\.")
+# Liste des remplacements pour chaque colonne
+replacement <- setNames(c("Commercial (All/almost all the production is sold)", "Self-consumption (Household food)",	"Self-consumption (Livestock feed)","Other"), elements)
+HarvestMain <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(paste0("d1.6.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,".")), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / Counter * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  HarvestMain <-  HarvestMain[,-3]
+  colnames(HarvestMain) <- c("modality","n", "% of N Crop")
+HarvestMain <- HarvestMain[order(HarvestMain$n, decreasing = TRUE),]
+  print(HarvestMain)
+})
+```
+
+### **Use of secondary harvest products for this crop (% of N crop)**
+```{r}
+renderTable({
+colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+y_values <- c(1:3, 99)
+elements <- paste0("d1.6c.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,"\\.")
+# Liste des remplacements pour chaque colonne
+replacement <- setNames(c("Commercial (All/almost all the production is sold)", "Self-consumption (Household food)",	"Self-consumption (Livestock feed)","Other"), elements)
+HarvestSecond <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(paste0("d1.6c.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,".")), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / Counter * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  HarvestSecond <-  HarvestSecond[,-3]
+  colnames(HarvestSecond) <- c("modality","n", "% of N Crop")
+HarvestSecond <- HarvestSecond[order(HarvestSecond$n, decreasing = TRUE),]
+  print(HarvestSecond)
+})
+```
+
+## Row 2
+
+### **If commercial purpose, what kind of output/buyer (% of N crop)**
+```{r}
+renderTable({
+colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+y_values <- c(1:4, 99)
+elements <- paste0("d1.6a.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,"\\.")
+# Liste des remplacements pour chaque colonne
+replacement <- setNames(c("Local market", "Middlemen",	"Collecting store", "Cooperative", "Other"), elements)
+HarvestSecond <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(paste0("d1.6a.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,".")), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / Counter * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  HarvestSecond <-  HarvestSecond[,-3]
+  colnames(HarvestSecond) <- c("modality","n", "% of N Crop")
+HarvestSecond <- HarvestSecond[order(HarvestSecond$n, decreasing = TRUE),]
+  print(HarvestSecond)
+})
+```
+
+### **If commercial purpose, % of the total income that this crop represent**
+```{r}
+renderTable({
+colcounter <- paste0("d1.0.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".")
+x <- summary(as.factor(Data[,colcounter]))
+Counter <- as.numeric(x[3])
+y_values <- c(1:5, 88)
+elements <- paste0("d1.6b.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,"\\.")
+# Liste des remplacements pour chaque colonne
+replacement <- setNames(c("0%", "25%", "50%", "75%", "100%", "Do not know/Do not want to answer"), elements)
+HarvestSecond <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(paste0("d1.6b.", CropsCor[CropsCor$Crops == input$Scrops_choice, 2], ".", y_values,".")), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / Counter * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  HarvestSecond <-  HarvestSecond[,-3]
+  colnames(HarvestSecond) <- c("modality","n", "% of N Crop")
+HarvestSecond <- HarvestSecond[order(HarvestSecond$n, decreasing = TRUE),]
+  print(HarvestSecond)
+})
+```
+
+# Main information about raising activity - Total {data-navmenu="Raising systems"}
+
+## Row 1
+
+### **Raising activity (% of N Study area)**
+
+```{r}
+renderTable({
+  Respondent <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  group_by(a12.) %>%
+  summarise(
+    nb_reponses = n(),                    # Nombre de réponses par modalité
+    pourcentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(nb_reponses))
+    colnames(Respondent) <- c("Cow raising activity","Nb Households", "% of N Study area")
+  print(Respondent)
+})
+```
+
+
+```{r}
+renderPlotly({
+  Data$d2.1. <- as.numeric(Data$d2.1.)
+  ggplotly(
+  ggplot(Data, aes(x = o2., y = d2.1., fill = o2.)) +
+  geom_boxplot() +
+  labs(x = "Number of head", y = "Nb of households",
+       title = "Number of adult cattle") +
+  theme_minimal()+
+    scale_fill_viridis_d()
+  )
+})
+
+```
+
+
+### **Number of adult animals (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$d2.1. <- as.numeric(Data$d2.1.)
+ CattleAdult <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o3. et AgeCat
+  group_by(d2.1.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  ggplotly(
+  ggplot(CattleAdult, aes(x = d2.1., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 3) +  # Ajout des étiquettes de pourcentage
+  labs(x = "Number of head", y = "Nb of households",
+       title = "Number of adult cattle") +
+  theme_minimal()+
+    scale_fill_viridis_d()
+  )
+})
+```
+
+## Row 2
+
+### **Number of young animals (% of N Study area)**
+
+```{r}
+renderPlotly({
+ Data$d2.1a. <- as.numeric(Data$d2.1a.)
+ CattleYoung <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o3. et AgeCat
+  group_by(d2.1a.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  ggplotly(
+  ggplot(CattleYoung, aes(x = d2.1a., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 3) +  # Ajout des étiquettes de pourcentage
+  labs(x = "Number of head", y = "Nb of households",
+       title = "Number of young cattle") +
+  theme_minimal()+
+    scale_fill_viridis_d()
+  )
+})
+```
+
+### **Number of sold animals (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$d2.1b. <- as.numeric(Data$d2.1b.)
+ CattleSold <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o3. et AgeCat
+  group_by(d2.1b.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  ggplotly(
+  ggplot(CattleSold, aes(x = d2.1b., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 3) +  # Ajout des étiquettes de pourcentage
+  labs(x = "Number of head", y = "Nb of households",
+       title = "Number of sold cattle (per 3 years)") +
+  theme_minimal()+
+    scale_fill_viridis_d()
+  )
+})
+```
+
+# Main information about raising activity - Total 2 {data-navmenu="Raising systems"}
+
+## Row 1 {data-height=500}
+
+### **Number of bought animals (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$d2.1c. <- as.numeric(Data$d2.1c.)
+ CattleSold <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o3. et AgeCat
+  group_by(d2.1c.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  ggplotly(
+  ggplot(CattleSold, aes(x = d2.1c., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 3) +  # Ajout des étiquettes de pourcentage
+  labs(x = "Number of head", y = "Nb of households",
+       title = "Number of bought cattle (per 3 years)") +
+  theme_minimal()+
+    scale_fill_viridis_d()
+  )
+})
+```
+
+### **Number of dead animals (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$d2.1d. <- as.numeric(Data$d2.1d.)
+ CattleSold <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o3. et AgeCat
+  group_by(d2.1d.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  ggplotly(
+  ggplot(CattleSold, aes(x = d2.1d., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 3) +  # Ajout des étiquettes de pourcentage
+  labs(x = "Number of head", y = "Nb of households",
+       title = "Number of dead cattle (per 3 years)") +
+  theme_minimal()+
+    scale_fill_viridis_d()
+  )
+})
+```
+
+## Row 2 
+
+### **Number of bought animals (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$d2.1c. <- as.numeric(Data$d2.1c.)
+ CattleSold <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o3. et AgeCat
+  group_by(d2.1c.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  ggplotly(
+  ggplot(CattleSold, aes(x = d2.1c., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 3) +  # Ajout des étiquettes de pourcentage
+  labs(x = "Number of head", y = "Nb of households",
+       title = "Number of bought cattle (per 3 years)") +
+  theme_minimal()+
+    scale_fill_viridis_d()
+  )
+})
+```
+
+### **Number of dead animals (% of N Study area)**
+
+```{r}
+renderPlotly({
+  Data$d2.1d. <- as.numeric(Data$d2.1d.)
+ CattleSold <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o3. et AgeCat
+  group_by(d2.1d.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  ggplotly(
+  ggplot(CattleSold, aes(x = d2.1d., y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 3) +  # Ajout des étiquettes de pourcentage
+  labs(x = "Number of head", y = "Nb of households",
+       title = "Number of dead cattle (per 3 years)") +
+  theme_minimal()+
+    scale_fill_viridis_d()
+  )
+})
+```
+
+# Technical information about the raising system - 1 {data-navmenu="Raising systems"}
+
+## Row 1
+
+### **Breeds raised (% of N Study area)**
+
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("d2.2.1." = "Brahman"
+                 ,"d2.2.2." = "Local cow"
+                 ,"d2.2.3." = "Hybrid Sind"
+                 ,"d2.2.4." = "BBB"
+                 ,"d2.2.5." = "Tiger cows"
+                 ,"d2.2.6." = "Thailand hybrid breed"
+                 ,"d2.2.99." = "Other"
+                 ,"d2.2.88." = "Do not know/Do not want to answer"
+                  )
+ Breed <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^d2\\.2\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  Breed <-  Breed[,-3]
+  colnames(Breed) <- c("Cattle breed raised","n", "% of N Study area")
+  print(Breed)
+})
+```
+
+### **Nb of breeds raised (% of N Study area)**
+```{r}
+renderPlotly({
+Data$nbreed <- rowSums(Data[,c("d2.2.1.","d2.2.2.","d2.2.3.","d2.2.4.",
+                               "d2.2.5.","d2.2.6.","d2.2.99.")] == 1)
+  Nbreed <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+       # Groupement par colonnes o2. et AgeCat
+  # Groupement par colonnes o2. et AgeCat
+  group_by(nbreed) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  )
+  province_colors <- unique(Nbreed$o2.)
+  ggplotly(
+  ggplot(Nbreed, aes(x = nbreed, y = count)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = percentage, y = count+2), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 2) +  # Ajout des étiquettes de pourcentage
+  coord_flip() +
+  labs(x = "Nb of different breeds raised", y = "Nb of households",
+       title = "Nb of different breeds raised") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+## Row 2
+
+### **Years of experience in breeding activity (% of N Study area)**
+```{r}
+###PB HERE
+renderPlotly({
+  Data$d2.3. <- as.numeric(Data$d2.3.)
+  Datab <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]
+  ggplot(Datab, aes(x = d2.3.)) +
+  geom_bar(width = 0.2, fill = "skyblue", color = "black") +
+  labs(x = "Nb of years", y = "Nb of households", title = "Years of experience in breeding activity")+
+  theme_minimal()
+})
+```
+
+### **Herd management(% of N Study area)**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("d2.4.1." = "Confined in a barn/shelter"
+                 ,"d2.4.2." = "Grazing in a paddock/field with fences/Attached"
+                 ,"d2.4.3." = "Freely grazing"
+                 ,"d2.4.99." = "Other")
+HerdM <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^d2\\.4\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  HerdM <-  HerdM[,-3]
+  colnames(HerdM) <- c("Herd management","n", "% of N Study area")
+  print(HerdM)
+})
+```
+
+# Technical information about the raising system - 2 {data-navmenu="Raising systems"}
+
+## Row 1
+
+### **Animal feeding (% of N Study area)**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("d2.5.1." = "Grazing in own/public pasture",
+                 "d2.5.2." = "Crop residues/wastes grazed after harvest from the farm",
+                 "d2.5.3." = "Crop residues/wastes collected from the farm and stored",
+                 "d2.5.4." = "Forage from the farm",
+                 "d2.5.5." = "Forage from the market",
+                 "d2.5.6." = "Concentrates from the farm",
+                 "d2.5.7." = "Concentrates from the market",
+                 "d2.5.99." = "Other",
+                 "d2.5.88." = "Do not know/Do not want to answer")
+HerdF <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^d2\\.5\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  HerdF <-  HerdF[,-3]
+  colnames(HerdF) <- c("Herd feeding","n", "% of N Study area")
+  print(HerdF)
+})
+```
+
+### **Animal health management (% of N Study area)**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("d2.6.1." = "Veterinary care",
+                 "d2.6.2." = "Chemical treatments",
+                 "d2.6.3." = "Antibiotics",
+                 "d2.6.4." = "Traditional treatments",
+                 "d2.6.5." = "Animal isolation practice",
+                 "d2.6.99." = "Other",
+                 "d2.6.88." = "Do not know/Do not want to answer")
+HerdHealth <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^d2\\.6\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  HerdHealth <-  HerdHealth[,-3]
+  colnames(HerdHealth) <- c("Herd health management","n", "% of N Study area")
+  print(HerdHealth)
+})
+```
+
+## Row 2
+
+### **Final purpose of raising activity (% of N Study area)**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("d2.7.1." = "Commercial (All/almost all the production is sold)",
+                 "d2.7.2." = "Self.consumption",
+                 "d2.7.99." = "Other",
+                 "d2.7.88." = "Do not know/Do not want to answer"
+)
+CattlePurpose <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^d2\\.7\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  CattlePurpose <-  CattlePurpose[,-3]
+  colnames(CattlePurpose) <- c("Purpose of Cattle raising activity","n", "% of N Study area")
+  print(CattlePurpose)
+})
+```
+
+### **If selling, which output/buyer (% of N Study area)**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("d2.7a.1." = "Local market",
+                 "d2.7a.2." = "Middlemen",
+                 "d2.7a.3." = "Collecting store", 
+                 "d2.7a.4." = "Cooperative",
+                 "d2.7a.99." = "Other", 
+                 "d2.7a.88." = "Do not know/Do not want to answer")
+CattleBuyers <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^d2\\.7a\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  CattleBuyers <-  CattleBuyers[,-3]
+  colnames(CattleBuyers) <- c("Buyers/outputs for cattle raising activity","n", "% of N Study area")
+  print(CattleBuyers)
+})
+```
+
+# Technical information about the raising system - 3 {data-navmenu="Raising systems"}
+
+## Row 1
+
+### **If commercial purposes, share of total household income from animals’s sales (% of N Study area)**
+```{r}
+# Convertir la colonne en valeurs décimales
+Data$d2.7b. <- factor(Data$d2.7b., levels = c("0%", "25%", "50%","75%","100%"))
+renderPlotly({
+  IncomeRaising <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  # Groupement par colonnes o2. et AgeCat
+  group_by(d2.7b.) %>%
+  # Résumé pour compter le nombre d'observations dans chaque groupe
+  summarise(
+    count = n(),                    # Nombre de réponses par modalité
+    percentage = sprintf("%.0f%%", n() / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses par modalité
+  ) %>%
+  arrange(desc(count))
+  IncomeRaising <- IncomeRaising[!is.na(IncomeRaising$d2.7b.),]
+  province_colors <- unique(IncomeRaising$o2.)
+  ggplotly(
+  ggplot(IncomeRaising, aes(x = d2.7b., y = count)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = percentage, y = count + 1), 
+            position = position_dodge(width = 0.9),  # Alignement avec les barres
+            vjust = -0.3,  # Ajuste la position verticale des étiquettes
+            size = 3) +  # Ajuste la taille des étiquettes
+  labs(x = "%of household income", y = "Nb of households",
+       title = "% of income from raising activities") +
+  theme_minimal()+
+  scale_fill_viridis_d() +  # Utiliser la palette de couleurs Viridis pour remplir les barres
+  scale_color_viridis_d()
+  )
+})
+```
+
+### **Other animal species raised (% of N Study area)**
+```{r}
+renderTable({
+  # Liste des remplacements pour chaque colonne
+replacement <- c("d3.1." = "Buffalo",
+                 "d3.2." = "Pigs",
+                 "d3.3." = "Poultry",
+                 "d3.4." = "Fish",
+                 "d3.99." = "Other",
+                 "d3.0." = "No")
+OtherAnimals <- Data %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches("^d3\\.\\d+\\."), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+ count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>%
+  arrange(desc(total_responses))
+  OtherAnimals <-  OtherAnimals[,-3]
+  colnames(OtherAnimals) <- c("Other animal species raised","n", "% of N Study area")
+  print(OtherAnimals)
+})
+```
+
+
+# Knowledge of the practices/technologies {data-navmenu="Encounter"}
+```{r}
+renderTable({
+  Encounter <- Data[,c("o2.","o2b.","o3.","b1.1.1.","b1.1.2.","b1.1.3.","b1.1.4.",
+                     "b1.1.5.","b1.1.12.","b1.1.13.","b1.1.6.","b1.1.7.","b1.1.8.",
+                     "b1.1.9.","b1.1.10.","b1.1.11.")]
+  # Liste des remplacements pour chaque colonne
+replacement <- c("b1.1.1\\." = "a. Mini-irrigation pan"
+                   ,"b1.1.2\\." = "b. Sprinklers/mini-sprinklers"
+                   ,"b1.1.3\\." = "c. Drip irrigation"
+                   ,"b1.1.4\\." = "d. Fertigation techniques"
+                   ,"b1.1.5\\." = "e. Adapted NPK rates"
+                   ,"b1.1.12\\." = "f. Biochar/Animal manure"
+                   ,"b1.1.13\\." = "g. Bentonite/Clay amendment"
+                   ,"b1.1.6\\." = "h. Cattle Club"
+                   ,"b1.1.7\\." = "i. Forage species (Mulato 1 & 2, DT58, lemongrass, elephant grass)"
+                   ,"b1.1.8\\." = "j. Increased forage harvesting frequency"
+                   ,"b1.1.9\\." = "k. Cow-calf management / reproduction technics"
+                   ,"b1.1.10\\." = "l. Cows’ mixing formula"
+                   ,"b1.1.11\\." = "m. Cow fattening technics")
+
+Encounter2 <- Encounter %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("b1."), names_to = "modality", values_to = "value") %>%
+  filter(value == "Yes") %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  Encounter2 <- Encounter2[,-3]
+  colnames(Encounter2) <- c("Practice/Technology","n", "% of N Study area")
+  #We create encounter2: 
+  print(Encounter2)
+})
+```
+
+# Means by which the practice/technology was discovered {data-navmenu="Encounter"}
+
+### % of knowledge of technology/practice
+N Study area = **`r renderText({round(nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]), digits = 0)})`**
+
+N Know (Number of households who know the technology in the study area):
+```{r}
+renderText({
+Encounter <- Data[,c("o2.","o2b.","o3.","b1.1.1.","b1.1.2.","b1.1.3.","b1.1.4.",
+                     "b1.1.5.","b1.1.12.","b1.1.13.","b1.1.6.","b1.1.7.","b1.1.8.",
+                     "b1.1.9.","b1.1.10.","b1.1.11.")]
+  # Liste des remplacements pour chaque colonne
+replacement <- c("b1.1.1\\." = "a. Mini-irrigation pan"
+                   ,"b1.1.2\\." = "b. Sprinklers/mini-sprinklers"
+                   ,"b1.1.3\\." = "c. Drip irrigation"
+                   ,"b1.1.4\\." = "d. Fertigation techniques"
+                   ,"b1.1.5\\." = "e. Adapted NPK rates"
+                   ,"b1.1.12\\." = "f. Biochar/Animal manure"
+                   ,"b1.1.13\\." = "g. Bentonite/Clay amendment"
+                   ,"b1.1.6\\." = "h. Cattle Club"
+                   ,"b1.1.7\\." = "i. Forage species (Mulato 1 & 2, DT58, lemongrass, elephant grass)"
+                   ,"b1.1.8\\." = "j. Increased forage harvesting frequency"
+                   ,"b1.1.9\\." = "k. Cow-calf management / reproduction technics"
+                   ,"b1.1.10\\." = "l. Cows’ mixing formula"
+                   ,"b1.1.11\\." = "m. Cow fattening technics")
+
+Encounter2 <- Encounter %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("b1."), names_to = "modality", values_to = "value") %>%
+  filter(value == "Yes") %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  Encounter2 <- Encounter2[,-3]
+  colnames(Encounter2) <- c("Practice/Technology","n", "% of N Study area")
+print(paste(round(Encounter2$n[Encounter2$`Practice/Technology` == input$Stechno_choice], digits = 2)," - ", round(Encounter2$n[Encounter2$`Practice/Technology` == input$Stechno_choice]/ nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,])*100, digits = 1), "% of N Study area"))
+})
+```
+
+### Activities in which households were involved
+
+```{r}
+renderTable({
+  pattern <- paste0("^b1\\.2\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.\\d+\\b")
+  # Liste des remplacements pour chaque colonne
+numeros <- c(1:10, 99, 88)
+motifs <- paste0("b1\\.2\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.", 
+                 sprintf("%d", numeros), "\\.")
+replacement <- setNames(
+  c(
+    "a. Field trips/Fields days to see demonstration model",
+    "b. On-farm trials",
+    "c. Demonstration trials at research stations",
+    "d. Indoor/outdoor trainings",
+    "e. Workshops",
+    "f. At cattle clubs",
+    "g. TV, broadcasting",
+    "h. Through my family, friends or neighbors",
+    "i. Through MARD officers",
+    "j. Fairs/Exhibitions",
+    "k. Other",
+    "l. Do not know/Do not want to answer / Cannot remember"),
+  motifs
+)
+Encountype <- Data  %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(pattern), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  Encountype <- Encountype[,-3]
+  colnames(Encountype) <- c("Encounter","n", "% of N Study area")
+  print(Encountype)
+})
+```
+
+# Activity organizer and role during the activity {data-navmenu="Encounter"}
+
+## Row 1
+
+### **Activity organizer**
+
+```{r}
+renderTable({
+  letters <- c("a","b","c","d","e","f","g","i")
+  pattern <- paste0("b1.3.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], letters, ".")
+  # On combine en une seule colonne
+  colonnes_data <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  Orga <- as.data.frame(unlist(colonnes_data))
+  Orga2 <- Orga %>%
+  separate(`unlist(colonnes_data)`, into = c("Valeur1", "Valeur2","Valeur3","Valeur4"), sep = ",")
+  Orga3 <- as.data.frame(unlist(Orga2))
+  Orga4 <- as.data.frame(Orga3[!is.na(Orga3$`unlist(Orga2)`) & Orga3$`unlist(Orga2)` != "",])
+x <- as.data.frame(table(Orga4))
+colnames(x) <- c("Activity organizer", "Frequency of mention")
+x$Percentage <- round((x$`Frequency of mention` / sum(x$`Frequency of mention`)) * 100, digits = 1)
+x <- x[order(x$Percentage, decreasing = TRUE), ]
+  print(x)
+})
+```
+
+### **Role in the activity**
+```{r}
+renderTable({
+selected_columns <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  select(matches(paste0("^b1\\.5\\.",TechnoID$Value[TechnoID$Techno == input$Stechno_choice],"([a-f]|i)\\.([1-7]|99)\\.$")))
+for (i in 0:6){
+  x <- 8*i+1
+  y <- 8*i+8
+  Dumm <- selected_columns[,(x:y)]
+  colnames(Dumm) <- paste0("col",1:8)
+if (exists("Dumm2")) {
+Dumm2 <- bind_rows(Dumm2, Dumm)
+} else {
+Dumm2 <- Dumm
+}}
+colnames(Dumm2) <- c("Farm demonstrator (host of the activity)",
+                     "Visitor to the farm", "Trainer", 
+                     "Participant to training",	
+                     "Leader of workshop/seminar/fair",
+                     "Best bet/Champion farmer",
+                     "Participant to workshop/seminar/fair",
+                     "Other")
+
+count_ones <- colSums(Dumm2 == "1")
+count_ones <- as.data.frame(t(count_ones))
+colnames(count_ones) <- colnames(Dumm2)
+Role <- as.data.frame(t(count_ones))
+Role$Role <- rownames(Role)
+Role <- Role[c("Role", "V1")]
+colnames(Role)[2] <- "Frequency"
+print(Role)
+})
+```
+
+## Row 2
+
+### How learn about the activity
+```{r}
+renderTable({
+selected_columns <- Data %>%
+ filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  select(matches(paste0("^b1\\.6\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "([a-f]|i)\\.([1-8]|99|88)\\.$")))
+for (i in 0:6){
+  x <- 10*i+1
+  y <- 10*i+10
+  Dumm <- selected_columns[,(x:y)]
+  colnames(Dumm) <- paste0("col",1:10)
+if (exists("Dumm2")) {
+Dumm2 <- bind_rows(Dumm2, Dumm)
+} else {
+Dumm2 <- Dumm
+}}
+colnames(Dumm2) <- c("Hue university staff", "ASISOV staff",
+                     "Communal extension officer", "Other farmers",
+                     "Farmer association/group","Chief of the commune",
+                     "ASISOV officer","Local authorities","Other",
+                     "Do not know/Do not want to answer")
+count_ones <- colSums(Dumm2 == "1")
+count_ones <- as.data.frame(t(count_ones))
+colnames(count_ones) <- colnames(Dumm2)
+Advert <- as.data.frame(t(count_ones))
+Advert$InformationSource <- rownames(Advert)
+Advert <- Advert[c("InformationSource", "V1")]
+colnames(Advert)[2] <- "Frequency"
+print(Advert)
+})
+```
+
+### Motivation to engage in the activity
+```{r}
+renderTable({
+selected_columns <- Data %>%
+ filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+  select(matches(paste0("^b1\\.7\\.",TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "([a-f]|i)\\.([1-9]|1[0-6]|99|88)\\.$")))
+for (i in 0:6){
+  x <- 18*i+1
+  y <- 18*i+18
+  Dumm <- selected_columns[,(x:y)]
+  colnames(Dumm) <- paste0("col",1:18)
+if (exists("Dumm2")) {
+Dumm2 <- bind_rows(Dumm2, Dumm)
+} else {
+Dumm2 <- Dumm
+}}
+colnames(Dumm2) <- c("Curiosity/interest for the subject",
+                     "Doing like my neighbors or friends",
+                     "Trying out something new as technology, practice",
+                     "Improving my living conditions",
+                     "Improving the composition or texture of my soil",
+                     "Increasing the yield of my crops",
+                     "Improving my revenues",
+                     "Improving soil composition",
+                     "Increasing the quality of my crops’ products",
+                     "Increasing the price at which I sell my animals",
+                     "Having more healthy animals",
+                     "Increasing the price at which I sell my crops’ products",
+                     "Gaining or reinforcing farm-related knowledge, capacities",
+                     "Increasing the turnover of my animals",
+                     "Exchanging / meeting / sharing experiences with other farmers",
+                     "Peer or officer pressure",
+                     "Other",
+                     "Do not know/Do not want to answer")
+count_ones <- colSums(Dumm2 == "1")
+count_ones <- as.data.frame(t(count_ones))
+colnames(count_ones) <- colnames(Dumm2)
+Motiv <- as.data.frame(t(count_ones))
+Motiv$Motivation <- rownames(Motiv)
+Motiv <- Motiv[c("Motivation", "V1")]
+colnames(Motiv)[2] <- "Frequency"
+print(Motiv)
+})
+```
+
+# Adoption of the practices/technologies {data-navmenu="Adoption"}
+
+```{r}
+renderTable({
+  Adoption <- Data[,c("o2.","o2b.","o3.","c1.1.1.","c1.1.2.","c1.1.3.","c1.1.4.",
+                     "c1.1.5.","c1.1.12.","c1.1.13.","c1.1.6.","c1.1.7.","c1.1.8.",
+                     "c1.1.9.","c1.1.10.","c1.1.11.")]
+  # Liste des remplacements pour chaque colonne
+replacement <- c("c1.1.1\\." = "a. Mini-irrigation pan"
+                   ,"c1.1.2\\." = "b. Sprinklers/mini-sprinklers"
+                   ,"c1.1.3\\." = "c. Drip irrigation"
+                   ,"c1.1.4\\." = "d. Fertigation techniques"
+                   ,"c1.1.5\\." = "e. Adapted NPK rates"
+                   ,"c1.1.12\\." = "f. Biochar/Animal manure"
+                   ,"c1.1.13\\." = "g. Bentonite/Clay amendment"
+                   ,"c1.1.6\\." = "h. Cattle Club"
+                   ,"c1.1.7\\." = "i. Forage species (Mulato 1 & 2, DT58, lemongrass, elephant grass)"
+                   ,"c1.1.8\\." = "j. Increased forage harvesting frequency"
+                   ,"c1.1.9\\." = "k. Cow-calf management / reproduction technics"
+                   ,"c1.1.10\\." = "l. Cows’ mixing formula"
+                   ,"c1.1.11\\." = "m. Cow fattening technics")
+
+Adoption2 <- Adoption %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("c1."), names_to = "modality", values_to = "value") %>%
+  filter(value == "Yes") %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  Adoption2 <- Adoption2[,-3]
+  colnames(Adoption2) <- c("Practice/Technology","n", "% of N Study area")
+  #We create Adoption2: 
+  print(Adoption2)
+})
+```
+
+# Duration of adoption {data-navmenu="Adoption"}
+
+## Row 1
+
+### Adoption rate
+N Study area = **`r renderText({round(nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]), digits = 0)})`**
+
+N Adopt (Number of households who adopted the technology in the study area):
+```{r}
+renderText({
+  Adoption <- Data[,c("o2.","o2b.","o3.","c1.1.1.","c1.1.2.","c1.1.3.","c1.1.4.",
+                     "c1.1.5.","c1.1.12.","c1.1.13.","c1.1.6.","c1.1.7.","c1.1.8.",
+                     "c1.1.9.","c1.1.10.","c1.1.11.")]
+  # Liste des remplacements pour chaque colonne
+replacement <- c("c1.1.1\\." = "a. Mini-irrigation pan"
+                   ,"c1.1.2\\." = "b. Sprinklers/mini-sprinklers"
+                   ,"c1.1.3\\." = "c. Drip irrigation"
+                   ,"c1.1.4\\." = "d. Fertigation techniques"
+                   ,"c1.1.5\\." = "e. Adapted NPK rates"
+                   ,"c1.1.12\\." = "f. Biochar/Animal manure"
+                   ,"c1.1.13\\." = "g. Bentonite/Clay amendment"
+                   ,"c1.1.6\\." = "h. Cattle Club"
+                   ,"c1.1.7\\." = "i. Forage species (Mulato 1 & 2, DT58, lemongrass, elephant grass)"
+                   ,"c1.1.8\\." = "j. Increased forage harvesting frequency"
+                   ,"c1.1.9\\." = "k. Cow-calf management / reproduction technics"
+                   ,"c1.1.10\\." = "l. Cows’ mixing formula"
+                   ,"c1.1.11\\." = "m. Cow fattening technics")
+
+Adoption2 <- Adoption %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = starts_with("c1."), names_to = "modality", values_to = "value") %>%
+  filter(value == "Yes") %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  Adoption2 <- Adoption2[,-3]
+  colnames(Adoption2) <- c("Practice/Technology","n", "% of N Study area")
+  #We create Adoption2: 
+print(paste(Adoption2$n[Adoption2$`Practice/Technology` == input$Stechno_choice]," - ", round(Adoption2$n[Adoption2$`Practice/Technology` == input$Stechno_choice]/ nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,])*100, digits = 0), "% of N Study area"))
+})
+```
+
+### Adoption rate and lenght of use
+```{r}
+renderTable({
+  pattern <- paste0("^c1\\.1a\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.")
+  selected_columns <- grep(pattern, names(Data), value = TRUE)
+# Vérifier si des colonnes ont été trouvées
+ # Pour chaque colonne trouvée, ordonner les modalités
+  for (col in selected_columns) {
+    Data[[col]] <- factor(Data[[col]], levels = c(
+      "",
+      "Less than a year (not using it anymore)",
+      "1-3years (not using it anymore)",
+      "3-5years (not using it anymore)",
+      "5-10years (not using it anymore)",
+      "I am still using this technology/ practice"
+    ))
+  }
+  col_to_group <- names(Data)[grep(pattern, names(Data))]
+  # Liste des remplacements pour chaque colonne
+AdoptionLength <- Data %>%
+  filter(o2. == input$Sarea_choice | o2b. == input$Sarea_choice) %>%
+ group_by(across(all_of(col_to_group))) %>%# Grouper par la colonne catégorielle 'pattern'
+  summarise(
+    nb_reponses = n(),  # Nombre de réponses par modalité
+    pourcentage = sprintf("%.0f%%", nb_reponses / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)  # Pourcentage de réponses
+  )
+  colnames(AdoptionLength) <- c("Answer","Nb Households", "% of N Study area")
+  AdoptionLength$Answer <- ifelse(AdoptionLength$Answer == "" | is.na(AdoptionLength$Answer), "Never adopted/known", as.character(AdoptionLength$Answer))
+  print(AdoptionLength)
+})
+```
+
+## Row 2
+
+### % for combined technologies
+```{r}
+renderTable({
+  pattern <- paste0("c1.1b.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], ".")
+  # On combine en une seule colonne
+  combinedT <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+ combinedT <- as.data.frame(table(combinedT))
+colnames(combinedT) <- c("Technology/Practice used", "Frequency")
+combinedT$`Technology/Practice used` <- as.character(combinedT$`Technology/Practice used`)
+combinedT$`Technology/Practice used` <- ifelse(combinedT$`Technology/Practice used` == '', "None", combinedT$`Technology/Practice used`)
+combinedT$Percentage <- round((combinedT$Frequency / sum(combinedT$Frequency)) * 100, digits = 1)
+  print(combinedT)
+})
+```
+
+### Plan to continue to use it
+```{r}
+renderTable({
+  pattern <- paste0("c2.5.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], ".")
+  # On combine en une seule colonne
+  PlanUse <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  PlanUse <- as.data.frame(table(PlanUse))
+colnames(PlanUse) <- c("Plan to continue to use it", "Frequency")
+PlanUse$`Plan to continue to use it` <- as.character(PlanUse$`Plan to continue to use it`)
+PlanUse$`Plan to continue to use it` <- ifelse(PlanUse$`Plan to continue to use it` == '', "Not used", PlanUse$`Plan to continue to use it`)
+PlanUse$Percentage <- round((PlanUse$Frequency / sum(PlanUse$Frequency)) * 100, digits = 1)
+  print(PlanUse)
+})
+```
+
+
+# Perceptions {data-navmenu="Adoption"}
+
+## Row 1
+
+### **Initial perception**
+```{r}
+renderTable({
+  pattern <- paste0("c2.1.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], ".")
+  # On combine en une seule colonne
+  PercepIni <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  PercepIni <- as.data.frame(table(PercepIni))
+colnames(PercepIni) <- c("Initial perception", "Frequency")
+PercepIni$`Initial perception` <- as.character(PercepIni$`Initial perception`)
+PercepIni$`Initial perception` <- ifelse(PercepIni$`Initial perception` == '', "Technology not known", PercepIni$`Initial perception`)
+PercepIni$Percentage <- round((PercepIni$Frequency / sum(PercepIni$Frequency)) * 100, digits = 1)
+  print(PercepIni)
+})
+```
+
+### **Current perception**
+```{r}
+renderTable({
+  pattern <- paste0("c2.4.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], ".")
+  # On combine en une seule colonne
+  PercepNow <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  PercepNow <- as.data.frame(table(PercepNow))
+colnames(PercepNow) <- c("Current perception", "Frequency")
+PercepNow$`Current perception` <- as.character(PercepNow$`Current perception`)
+PercepNow$`Current perception` <- ifelse(PercepNow$`Current perception` == '', "Technology not known/Never adopted", PercepNow$`Current perception`)
+PercepNow$Percentage <- round((PercepNow$Frequency / sum(PercepNow$Frequency)) * 100, digits = 1)
+  print(PercepNow)
+})
+```
+
+## Row 2
+
+### **Change of mind**
+```{r}
+renderTable({
+  pattern <- paste0("c2.4a.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], ".")
+  # On combine en une seule colonne
+  MindChange <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  MindChange <- as.data.frame(table(MindChange))
+colnames(MindChange) <- c("Current perception", "Frequency")
+MindChange$`Current perception` <- as.character(MindChange$`Current perception`)
+MindChange$`Current perception` <- ifelse(MindChange$`Current perception` == '', "Technology not known/Never adopted", MindChange$`Current perception`)
+MindChange$Percentage <- round((MindChange$Frequency / sum(MindChange$Frequency)) * 100, digits = 1)
+  print(MindChange)
+})
+```
+
+### **Expectations**
+```{r}
+renderTable({
+  pattern <- paste0("^c2\\.2\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.\\d+\\b")
+  # Liste des remplacements pour chaque colonne
+numeros <- c(0:8, 99)
+motifs <- paste0("c2\\.2\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.", 
+                 sprintf("%d", numeros), "\\.")
+replacement <- setNames(
+  c("No expectations", "Higher yield", "Lower water consumption",
+    "Higher animal weight", "Higher animal health",
+    "Higher reproduction rate", "Higher quality product",
+    "Higher income", "Lower workload", "Other"),
+  motifs
+)
+Expectation <- Data  %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(pattern), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  Expectation <- Expectation[,-3]
+  colnames(Expectation) <- c("Expectations","n", "% of N Study area")
+  print(Expectation)
+})
+```
+
+
+# Constraint/Enhancement to adopt the technology {data-navmenu="Adoption"}
+
+## Row 1
+
+### **Self perception of knowledge/ capacity at individual level to implement the technology/practice**
+```{r}
+renderTable({
+  pattern <- paste0("c1.2.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], ".")
+  # On combine en une seule colonne
+  SPKn <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  SPKn <- as.data.frame(table(SPKn))
+colnames(SPKn) <- c("Self perception of knowledge/ capacity", "Frequency")
+SPKn$`Self perception of knowledge/ capacity` <- as.character(SPKn$`Self perception of knowledge/ capacity`)
+SPKn$`Self perception of knowledge/ capacity` <- ifelse(SPKn$`Self perception of knowledge/ capacity` == '', "Technology not known/Never adopted", SPKn$`Self perception of knowledge/ capacity`)
+SPKn$Percentage <- round((SPKn$Frequency / sum(SPKn$Frequency)) * 100, digits = 1)
+  print(SPKn)
+})
+```
+
+### **Self perception of material, physical capacities at farm to accommodate the technology/practice**
+```{r}
+renderTable({
+  pattern <- paste0("c1.3.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], ".")
+  # On combine en une seule colonne
+  SPMatPhy <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  SPMatPhy <- as.data.frame(table(SPMatPhy))
+colnames(SPMatPhy) <- c("Self perception of material/physical capacities", "Frequency")
+SPMatPhy$`Self perception of material/physical capacities` <- as.character(SPMatPhy$`Self perception of material/physical capacities`)
+SPMatPhy$`Self perception of material/physical capacities` <- ifelse(SPMatPhy$`Self perception of material/physical capacities` == '', "Technology not known/Never adopted", SPMatPhy$`Self perception of material/physical capacities`)
+SPMatPhy$Percentage <- round((SPMatPhy$Frequency / sum(SPMatPhy$Frequency)) * 100, digits = 1)
+  print(SPMatPhy)
+})
+```
+
+## Row 2
+
+### **Self perception of limitations/incentives coming from family, neighbours, for the use the technology/practice**
+```{r}
+renderTable({
+  pattern <- paste0("c1.4.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], ".")
+  # On combine en une seule colonne
+  SPFamily <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  SPFamily <- as.data.frame(table(SPFamily))
+colnames(SPFamily) <- c("Limitations/incentives coming from family, neighbours", "Frequency")
+SPFamily$`Limitations/incentives coming from family, neighbours` <- as.character(SPFamily$`Limitations/incentives coming from family, neighbours`)
+SPFamily$`Limitations/incentives coming from family, neighbours` <- ifelse(SPFamily$`Limitations/incentives coming from family, neighbours` == '', "Technology not known/Never adopted", SPFamily$`Limitations/incentives coming from family, neighbours`)
+SPFamily$Percentage <- round((SPFamily$Frequency / sum(SPFamily$Frequency)) * 100, digits = 1)
+  print(SPFamily)
+})
+```
+
+### **When deciding to use the technology/practice, feeling**
+```{r}
+renderTable({
+  pattern <- paste0("^c2\\.3\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.\\d+\\b")
+  # Liste des remplacements pour chaque colonne
+numeros <- c(1:4)
+motifs <- paste0("c2\\.3\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.", 
+                 sprintf("%d", numeros), "\\.")
+replacement <- setNames(
+  c("The technology was affordable", "The technology was expensive", "The technology was a safe investment", "The technology was a risky investment"),
+  motifs
+)
+Feeling <- Data  %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(pattern), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  Feeling <- Feeling[,-3]
+  colnames(Feeling) <- c("Feelings","n", "% of N Study area")
+  print(Feeling)
+})
+```
+
+# Suitability perception and Adaptation {data-navmenu="Adoption"}
+
+## Row 1
+
+### **Techology/practice suitability perception**
+```{r}
+renderTable({
+colonne1 <- c("a. Mini-irrigation pan","b. Sprinklers/mini-sprinklers","c. Drip irrigation","d. Fertigation techniques","e. Adapted NPK rates","f. Biochar/Animal manure","g. Bentonite/Clay amendment","h. Cattle Club","i. Forage species (Mulato 1 & 2, DT58, lemongrass, elephant grass)","j. Increased forage harvesting frequency","k. Cow-calf management / reproduction technics","l. Cows’ mixing formula","m. Cow fattening technics")
+colonne2 <- c(paste("Not suitable because judged not efficient or not necesary","Not suitable because of crops","Not suitable because of other farm characteristics", "Suitable", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary","Not suitable because of crops","Not suitable because of other farm characteristics","Not suitable because access to gravity irrigation","Suitable", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary","Not suitable because of crops",	"Not suitable because of other farm characteristics","Not suitable because access to gravity irrigation","Suitable", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary","Not suitable because of crops", "Not suitable because of other farm characteristics","Suitable","Do not know/ Do not want to answer", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary",	"Not suitable because of crops",	"Not suitable because of other farm characteristics","Not suitable because of price fluctuation","Suitable","Do not know/ Do not want to answer", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary","Not suitable because of crops",	"Not suitable because of other farm characteristics", "Not suitable because of price fluctuation/rarity","Suitable","Do not know/ Do not want to answer", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary","Not suitable because of other farm characteristics","Not suitable because of price fluctuation/rarity","Suitable", sep = ","),
+              paste("Not suitable because of other farm characteristics","Suitable", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary", "Not suitable because of other farm characteristics","Suitable", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary",	"Not suitable because of crops","Not suitable because of other farm characteristics",	"Suitable","Do not know/ Do not want to answer", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary","Not suitable because of other farm characteristics","Suitable", "Do not know/ Do not want to answer", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary", "Not suitable because of other farm characteristics", "Not suitable because of high price-rarity", "Not suitable because of labor","Suitable","Do not know/ Do not want to answer", sep = ","),
+              paste("Not suitable because judged not efficient or not necesary",	"Not suitable because of crops",	"Not suitable because of other farm characteristics","Not suitable because of low cow price","Not suitable because of labor","Suitable","Do not know/ Do not want to answer", sep = ",")
+)
+colonne3 <- I(list(c(1:4),c(1:5),c(1:5),c(1:4, 88),c(1:5, 88),c(1:5, 88),c(1:4),c(1:2),c(1:3),c(1:4, 88),c(1:3, 88), 
+  c(1:5, 88),c(1:6, 88)))
+
+# Créer un data frame
+Table <- data.frame(Techno = colonne1, Answers = colonne2, Ncol = colonne3)
+  pattern <- paste0("^c1\\.4b\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.\\d+\\b")
+  # Liste des remplacements pour chaque colonne
+numeros <- unlist(Table$Ncol[Table$Techno == input$Stechno_choice])
+motifs <- paste0("c1\\.4b\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.", 
+                 sprintf("%d", numeros), "\\.")
+replacement <- str_split(Table$Answers[Table$Techno == input$Stechno_choice],",")
+replacement <- setNames(unlist(replacement),
+  motifs
+)
+Suitability <- Data  %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(pattern), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  Suitability <- Suitability[,-3]
+  colnames(Suitability) <- c("Answer","n", "% of N Study area")
+  print(Suitability)
+})
+```
+
+## Row 2
+
+### **Tuning/adaptation/reconfiguration of the technology or /practice** 
+```{r}
+renderTable({
+colonne1 <- c("a. Mini-irrigation pan","b. Sprinklers/mini-sprinklers","c. Drip irrigation","d. Fertigation techniques","e. Adapted NPK rates","f. Biochar/Animal manure","g. Bentonite/Clay amendment","h. Cattle Club","i. Forage species (Mulato 1 & 2, DT58, lemongrass, elephant grass)","j. Increased forage harvesting frequency","k. Cow-calf management / reproduction technics","l. Cows’ mixing formula","m. Cow fattening technics")
+colonne2 <- c(paste("None"),
+              paste("None","Increase the number of sprinklers/nozzles","Decrease the number of sprinklers/nozzles","Change sprinklers layout","Change sprinklers type", "Change sprinklers head/nozzles","Change to pipe with holes", sep = ","),
+              paste("None","Changes on the pipes", sep = ","),
+              paste("None","Use for specific plants",
+                    "Reduce or increase fertilizer rate",
+                    "Use fertigation through flooding irrigation system","Use of water soluble fertilizer instead of granulates",sep = ","),
+              paste("None",	"Adjusting the fertilizer rate depending on the conditions/crops",	"Increasing fertilizer rate", "Adding animal manure", "Replaced NPK with a different kind of fertilizer", sep = ","),
+              paste("None","Manure decay before using","Change manure-biochar rate", "Stop to use biochar, only cow manure", sep = ","),
+              paste("None","Use additionnal component to the clay", sep = ","),
+              paste("None","Reduce meeting frequency","Increase meeting frequency", sep = ","),
+              paste("None","Varieties selection","Increasing planting density", "Decreasing planting density","Practicing replanting","Increase fertilizer rate","Crop rotation", sep = ","),
+              paste("None","Increase fertilizer amount",	"Adjust forage harvest frequency","Adjust forage cutting height","Use of urea only","Other", sep = ","),
+              paste("None",	"Separate cow-calf after different time (adapted on the situation)","Normal feeding during cow pregnancy to avoid problems with whelping","Other", sep = ","),
+              paste("None","Increasing self-produced ingredient proportion to save cost","Increasing some ingredient proportion for efficiency purpose","Switched to commercial formula","Stopped fermentation","Stopped using urea","Other", sep = ","),
+              paste("None","Changed fattening period duration","Adjust calfs/cows ration","Other", sep = ",")
+)
+colonne3 <- I(list(1,c(1:7),c(1:2),c(1:5),c(1:5),c(1:4),c(1:2),c(1:3),c(1:7),c(1:6),c(1:4), c(1:7),c(1:4)))
+
+# Créer un data frame
+Table <- data.frame(Techno = colonne1, Answers = colonne2, Ncol = colonne3)
+  pattern <- paste0("^c1\\.5\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.\\d+\\b")
+  # Liste des remplacements pour chaque colonne
+numeros <- unlist(Table$Ncol[Table$Techno == input$Stechno_choice])
+motifs <- paste0("c1\\.5\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.", 
+                 sprintf("%d", numeros), "\\.")
+replacement <- str_split(Table$Answers[Table$Techno == input$Stechno_choice],",")
+replacement <- setNames(unlist(replacement),
+  motifs
+)
+AdaptationT <- Data  %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(pattern), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  AdaptationT <- AdaptationT[,-3]
+  colnames(AdaptationT) <- c("Answer","n", "% of N Study area")
+  print(AdaptationT)
+})
+```
+
+###  **Changes on farm to use the technology/practice**
+```{r}
+renderTable({
+  pattern <- paste0("^c1\\.6\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.\\d+\\b")
+  # Liste des remplacements pour chaque colonne
+numeros <- c(0:6,99,88)
+motifs <- paste0("c1\\.6\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice], "\\.", 
+                 sprintf("%d", numeros), "\\.")
+replacement <- setNames(
+  c("No particular change","Increase cultivated land","Decrease cultivated land","Buy special devices (pipe, pumping motors…)","Increase barn size","Search for mutual support with other farmers","Get more frequent advise from extension officers","Other type of change on the practice or technology that is different from the initial guidance","Do not know/Do not want to answer"),
+  motifs
+)
+AdaptationF <- Data  %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(pattern), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(modality)
+  AdaptationF <- AdaptationF[,-3]
+  colnames(AdaptationF) <- c("Answer","n", "% of N Study area")
+  print(AdaptationF)
+})
+```
+
+# Perceived impacts {data-navmenu="Impacts"}
+
+## Row 1
+
+### **Concerned area (For crops)**
+```{r}
+renderTable({
+  pattern <- paste0("c3.1.",TechnoID$Value[TechnoID$Techno == input$Stechno_choice],CropsCor$CropsLetter[Crops == input$Scrops_choice], ".")
+  # On combine en une seule colonne
+  ShareImpactC <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  ShareImpactC <- as.data.frame(table(ShareImpactC))
+colnames(ShareImpactC) <- c("Area concerned by the use of this practice/technology/technological package", "Frequency")
+ShareImpactC$`Area concerned by the use of this practice/technology/technological package` <- as.character(ShareImpactC$`Area concerned by the use of this practice/technology/technological package`)
+ShareImpactC$`Area concerned by the use of this practice/technology/technological package` <- ifelse(ShareImpactC$`Area concerned by the use of this practice/technology/technological package` == '', "Technology not known/Never adopted", ShareImpactC$`Area concerned by the use of this practice/technology/technological package`)
+ShareImpactC$Percentage <- round((ShareImpactC$Frequency / sum(ShareImpactC$Frequency)) * 100, digits = 1)
+  print(ShareImpactC)
+})
+```
+
+### **Declared impacts for cropping system for each crops**
+```{r}
+renderTable({
+  pattern <- paste0("^c3\\.1a\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice],CropsCor$CropsLetter[Crops == input$Scrops_choice], "\\.\\d+\\b")
+  # Liste des remplacements pour chaque colonne
+numeros <-c(0:24,99,88)
+motifs <- paste0("c3\\.1a\\.",TechnoID$Value[TechnoID$Techno == input$Stechno_choice],CropsCor$CropsLetter[Crops == input$Scrops_choice],"\\.", 
+                 sprintf("%d", numeros), "\\.")
+replacement <- setNames(
+  c("None","YIELD - Decrease","YIELD - Increase","WATER CONSUMPTION - Decrease","WATER CONSUMPTION - Increase","FARM INCOME – Decrease","FARM INCOME – Increase","FARM INCOME - more stable from one year to the next","FARM INCOME - more uncertain from one year to the next","LABOR NEED – Decrease","LABOR NEED – Increase","TIME CONSUMPTION – Decrease","TIME CONSUMPTION - Increase","WORKING CONDITIONS – Improved","WORKING CONDITIONS – Worsened","PRODUCT QUALITY – Increase","PRODUCT QUALITY – Decrease","SOIL HEALTH – Increase","SOIL HEALTH – Decrease","FARM VISIBILITY/REPUTATION – Increase","FARM VISIBILITY/REPUTATION – Decrease","SELLING PRICES – Increase","SELLING PRICES – decrease","FARM PRODUCTION DIVERSIFICATION","ACCESS TO MARKET","Other","Do not know/Do not want to answer"),
+  motifs
+)
+Impacts <- Data  %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(pattern), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(desc(n))
+  Impacts <- Impacts[,-3]
+  colnames(Impacts) <- c("Impacts","n", "% of N Study area")
+  print(Impacts)
+})
+```
+
+## Row 2
+
+### **Concerned part of the herd (For animals)**
+```{r}
+renderTable({
+  pattern <- paste0("c3.1.",TechnoID$Value[TechnoID$Techno == input$Stechno_choice],"a.")
+  # On combine en une seule colonne
+  ShareImpactA <- Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice, pattern, drop = FALSE]
+  ShareImpactA <- as.data.frame(table(ShareImpactA))
+colnames(ShareImpactA) <- c("Area concerned by the use of this practice/technology/technological package", "Frequency")
+ShareImpactA$`Area concerned by the use of this practice/technology/technological package` <- as.character(ShareImpactA$`Area concerned by the use of this practice/technology/technological package`)
+ShareImpactA$`Area concerned by the use of this practice/technology/technological package` <- ifelse(ShareImpactA$`Area concerned by the use of this practice/technology/technological package` == '', "Technology not known/Never adopted", ShareImpactA$`Area concerned by the use of this practice/technology/technological package`)
+ShareImpactA$Percentage <- round((ShareImpactA$Frequency / sum(ShareImpactA$Frequency)) * 100, digits = 1)
+  print(ShareImpactA)
+})
+```
+
+### **Declared impacts for raising activity**
+```{r}
+renderTable({
+  pattern <- paste0("^c3\\.1a\\.", TechnoID$Value[TechnoID$Techno == input$Stechno_choice],"a", "\\.\\d+\\b")
+  # Liste des remplacements pour chaque colonne
+numeros <-c(1:26,99,88)
+motifs <- paste0("c3\\.1a\\.",TechnoID$Value[TechnoID$Techno == input$Stechno_choice],"a","\\.", 
+                 sprintf("%d", numeros), "\\.")
+replacement <- setNames(
+  c("ANIMAL WEIGHT – Decrease","ANIMAL WEIGHT – Increase","ANIMAL HEALTH – Decrease","ANIMAL HEALTH – Increase","REPRODUCTION RATE – Increase","REPRODUCTION RATE - Decrease","FARM INCOME – Decrease","FARM INCOME – Increase","FARM INCOME - more stable from one year to the next","FARM INCOME - more uncertain from one year to the next","LABOR NEED – Decrease","LABOR NEED – Increase","TIME CONSUMPTION – Decrease","TIME CONSUMPTION - Increase","WORKING CONDITIONS – Improved","WORKING CONDITIONS – Worsened","PRODUCT QUALITY – Increase","PRODUCT QUALITY – Decrease","SOIL HEALTH – Increase","SOIL HEALTH – Decrease",	"FARM VISIBILITY/REPUTATION – Increase","FARM VISIBILITY/REPUTATION – Decrease","SELLING PRICES – Increase","SELLING PRICES – decrease","FARM PRODUCTION DIVERSIFICATION","ACCESS TO MARKET","Other","Do not know/Do not want to answer"),
+  motifs
+)
+ImpactsA <- Data  %>%
+  filter(o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice) %>%
+  # Regrouper les colonnes binaires en une colonne de modalités
+  pivot_longer(cols = matches(pattern), names_to = "modality", values_to = "value") %>%
+  filter(value == 1) %>%  # Garder uniquement les lignes où la modalité est présente
+  # Keep only the rows where the modality is present
+  count(modality) %>%  # Count the number of responses for each modality and area
+  mutate(total_responses = sum(n)) %>%  # Calculer le total des réponses par province
+  mutate(percentage = sprintf("%.0f%%", n / nrow(Data[Data$o2. == input$Sarea_choice | Data$o2b. == input$Sarea_choice,]) * 100)) %>%  # Calculer le pourcentage
+  ungroup() %>%  # Annuler le regroupement  
+  mutate(
+    modality = str_replace_all(modality, replacement),
+  ) %>% arrange(desc(n))
+  ImpactsA <- ImpactsA[,-3]
+  colnames(ImpactsA) <- c("Impacts","n", "% of N Study area")
+  print(ImpactsA)
+})
+```
